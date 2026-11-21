@@ -11,7 +11,7 @@ Open `index.html` in a browser, or run `python -m http.server 8000` from this fo
 - `assets/js/main.js` handles mobile navigation, the services carousel and vCard download.
 - `assets/images/hatchery-banner.webp` is the approved illustrative banner. The equipment imagery is also illustrative and may differ from exact product models.
 
-The services carousel auto-advances while visible and loops continuously and pauses on hover or focus and supports native touch scrolling. It starts paused when the browser requests reduced motion.
+The services carousel scrolls continuously while visible and supports manual scrolling. Autoplay respects the reduced-motion setting.
 
 ## Spaceship hosting
 

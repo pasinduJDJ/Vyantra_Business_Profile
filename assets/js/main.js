@@ -37,99 +37,72 @@ document.querySelector('#save-contact').addEventListener('click', () => {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 });
 
-
-const motionPreference = window.matchMedia('(prefers-reduced-motion: reduce)');
-const loader = document.querySelector('.site-loader');
-if (!motionPreference.matches) {
-  loader.hidden = false;
-  setTimeout(() => loader.remove(), 1650);
-}
-
 const track = document.querySelector('.services-track');
+const motionPreference = window.matchMedia('(prefers-reduced-motion: reduce)');
 const cards = Array.from(track.children);
-for (const card of cards) {
+const copies = cards.map(card => {
   const copy = card.cloneNode(true);
   copy.setAttribute('aria-hidden', 'true');
-  copy.classList.add('carousel-copy');
-  track.append(copy);
-}
-
-const firstCopy = track.children[cards.length];
-let autoplay = !motionPreference.matches;
+  return copy;
+});
 let inView = false;
 let touching = false;
-let frame = 0;
-let lastTime;
+let frame;
+let previousTime;
 let position;
 
-function animate(time) {
-  if (lastTime === undefined || Math.abs(track.scrollLeft - position) > 2) {
+function advanceCarousel(time) {
+  if (previousTime === undefined || Math.abs(track.scrollLeft - position) > 2) {
     position = track.scrollLeft;
   }
-  const cycleWidth = firstCopy.offsetLeft - cards[0].offsetLeft;
-  if (lastTime !== undefined && cycleWidth > 0) {
-    position = (position + Math.min(time - lastTime, 50) * 0.045) % cycleWidth;
+  const cycleWidth = copies[0].offsetLeft - cards[0].offsetLeft;
+  if (previousTime !== undefined && cycleWidth > 0) {
+    position = (position + Math.min(time - previousTime, 50) * 0.045) % cycleWidth;
     track.scrollLeft = position;
   }
-  lastTime = time;
-  frame = requestAnimationFrame(animate);
+  previousTime = time;
+  frame = requestAnimationFrame(advanceCarousel);
 }
 
 function syncCarousel() {
   cancelAnimationFrame(frame);
-  lastTime = undefined;
-  track.classList.toggle('is-playing', autoplay);
-  if (autoplay && inView && !document.hidden && !touching && !track.matches(':hover, :focus-within')) {
-    frame = requestAnimationFrame(animate);
+  previousTime = undefined;
+  if (inView && !motionPreference.matches && !document.hidden && !touching && !track.matches(':hover, :focus-within')) {
+    frame = requestAnimationFrame(advanceCarousel);
   }
 }
 
-function setAutoplay(enabled) {
-  if (!enabled && autoplay) {
-    const cycleWidth = firstCopy.offsetLeft - cards[0].offsetLeft;
+function updateMotion() {
+  if (motionPreference.matches) {
+    const cycleWidth = copies[0].offsetLeft - cards[0].offsetLeft;
     if (cycleWidth > 0) track.scrollLeft %= cycleWidth;
+    copies.forEach(copy => copy.remove());
+  } else {
+    track.append(...copies);
   }
-  autoplay = enabled;
   syncCarousel();
 }
 
-motionPreference.addEventListener('change', event => {
-  if (event.matches) {
-    setAutoplay(false);
-    loader.remove();
-  }
-});
-for (const event of ['mouseenter', 'mouseleave', 'focusin', 'focusout']) {
-  track.addEventListener(event, syncCarousel);
-}
-track.addEventListener('touchstart', () => {
-  touching = true;
-  syncCarousel();
-}, { passive: true });
-function endTouch() {
-  touching = false;
-  syncCarousel();
-}
-track.addEventListener('touchend', endTouch, { passive: true });
-track.addEventListener('touchcancel', endTouch, { passive: true });
-document.addEventListener('visibilitychange', syncCarousel);
-new IntersectionObserver(([entry]) => {
-  inView = entry.isIntersecting;
-  syncCarousel();
-}).observe(track);
-setAutoplay(autoplay);
-
-/* Reveal each section detail on its first entry into the viewport. */
 if ('IntersectionObserver' in window) {
-  const revealObserver = new IntersectionObserver((entries, observer) => {
-    for (const { target, isIntersecting } of entries) {
-      if (!isIntersecting) continue;
-      observer.unobserve(target);
-      if (!motionPreference.matches) target.classList.add('scroll-revealed');
-    }
-  }, { threshold: 0.12 });
-
-  document.querySelectorAll(
-    '.about-content, .about-photo, .equipment-card, .solutions .section-heading, .contact-panel'
-  ).forEach(element => revealObserver.observe(element));
+  new IntersectionObserver(([entry]) => {
+    inView = entry.isIntersecting;
+    syncCarousel();
+  }).observe(track);
+  motionPreference.addEventListener('change', updateMotion);
+  document.addEventListener('visibilitychange', syncCarousel);
+  for (const event of ['mouseenter', 'mouseleave', 'focusin']) {
+    track.addEventListener(event, syncCarousel);
+  }
+  track.addEventListener('focusout', () => setTimeout(syncCarousel, 0));
+  track.addEventListener('touchstart', () => {
+    touching = true;
+    syncCarousel();
+  }, { passive: true });
+  for (const event of ['touchend', 'touchcancel']) {
+    track.addEventListener(event, () => {
+      touching = false;
+      syncCarousel();
+    }, { passive: true });
+  }
+  updateMotion();
 }
